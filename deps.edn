@@ -1,0 +1,44 @@
+{:paths ["src" "resources"]
+ :deps  {org.clojure/clojure       {:mvn/version "1.12.1"}
+         org.clojure/tools.logging {:mvn/version "1.3.0"}
+         metosin/malli             {:mvn/version "0.19.1"}
+         org.snmp4j/snmp4j         {:mvn/version "3.9.3"}}
+
+ :aliases
+ {:repl
+  {:jvm-opts ["-Dclojure.compile.warn-on-reflection=true"]}
+
+  :dev
+  {:extra-paths ["src/dev"]
+   :extra-deps  {}}
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps  {org.clojure/test.check               {:mvn/version "1.1.1"}
+                 io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+   :main-opts   ["-m" "cognitect.test-runner"]
+   :exec-fn     cognitect.test-runner.api/test}
+
+  :build
+  {:deps       {io.github.clojure/tools.build
+                {:mvn/version "0.10.9"}
+                slipset/deps-deploy {:mvn/version "0.2.2"}}
+   :ns-default build}
+
+  :nrepl
+  {:extra-paths ["test"]
+   :extra-deps  {nrepl/nrepl                    {:mvn/version "1.3.1"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
+   :jvm-opts    ["-Djdk.attach.allowAttachSelf"]
+   :main-opts   ["-m" "nrepl.cmdline" "--port" "7888"]}
+
+  :mcp
+  {:extra-deps {org.slf4j/slf4j-nop     {:mvn/version "2.0.16"}
+                com.bhauman/clojure-mcp {;; use git repo when using this from container
+                                         :local/root "/Users/vasko/software/clojure-mcp"
+                                         ;;:git/url "https://github.com/bhauman/clojure-mcp.git"
+                                         ;;:git/sha "ba8549078d2946b246ab07091c330e22c8866a2a"
+                                         }}
+   :exec-fn    clojure-mcp.main/start-mcp-server
+   :exec-args  {:port 7888}}
+  }}

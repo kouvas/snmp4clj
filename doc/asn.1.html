@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASN.1 and BER Encoding Explained</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .encoding-example {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .byte-diagram {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .byte {
+            border: 2px solid #3498db;
+            padding: 8px 12px;
+            border-radius: 4px;
+            background: #ecf0f1;
+            font-family: monospace;
+            font-size: 14px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .byte.type {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .byte.length {
+            background: #fff3e0;
+            border-color: #ff9800;
+        }
+
+        .byte.value {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .byte-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .tlv-structure {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+
+        .tlv-part {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .arrow {
+            font-size: 24px;
+            color: #666;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .oid-example {
+            background: #fffbf0;
+            border: 1px solid #f0e68c;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .bit-diagram {
+            display: inline-block;
+            margin: 5px 0;
+        }
+
+        .bit {
+            display: inline-block;
+            width: 20px;
+            height: 25px;
+            border: 1px solid #999;
+            text-align: center;
+            line-height: 25px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 0 1px;
+        }
+
+        .bit.msb {
+            background: #ffeb3b;
+        }
+
+        .bit-label {
+            display: block;
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+<h1>Understanding ASN.1 and BER Encoding</h1>
+
+<div class="section">
+    <h2>What is ASN.1?</h2>
+    <p><strong>ASN.1 (Abstract Syntax Notation One)</strong> is a standard for describing data structures in a platform-independent way. Think of it as a universal language for describing how data should be structured, regardless of the programming language or system.</p>
+
+    <p>It's like JSON or XML, but:</p>
+    <ul>
+        <li>More compact (binary encoding)</li>
+        <li>Strongly typed</li>
+        <li>Used in protocols like SNMP, X.509 certificates, LDAP</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>BER Encoding: The TLV Structure</h2>
+    <p><strong>BER (Basic Encoding Rules)</strong> is one way to encode ASN.1 data into bytes. It uses a <strong>TLV (Type-Length-Value)</strong> structure:</p>
+
+    <div class="tlv-structure">
+        <div class="tlv-part">
+            <div class="byte type">Type</div>
+            <div class="byte-label">1+ bytes</div>
+            <p>What kind of data</p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="tlv-part">
+            <div class="byte length">Length</div>
+            <div class="byte-label">1+ bytes</div>
+            <p>How many bytes of data</p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="tlv-part">
+            <div class="byte value">Value</div>
+            <div class="byte-label">N bytes</div>
+            <p>The actual data</p>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Common ASN.1 Types</h2>
+    <table>
+        <tr>
+            <th>Type</th>
+            <th>Tag (Hex)</th>
+            <th>Tag (Binary)</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>INTEGER</td>
+            <td>0x02</td>
+            <td>00000010</td>
+            <td>Whole numbers</td>
+        </tr>
+        <tr>
+            <td>OCTET STRING</td>
+            <td>0x04</td>
+            <td>00000100</td>
+            <td>Byte arrays</td>
+        </tr>
+        <tr>
+            <td>NULL</td>
+            <td>0x05</td>
+            <td>00000101</td>
+            <td>No value</td>
+        </tr>
+        <tr>
+            <td>OBJECT IDENTIFIER</td>
+            <td>0x06</td>
+            <td>00000110</td>
+            <td>OIDs (like 1.3.6.1)</td>
+        </tr>
+        <tr>
+            <td>SEQUENCE</td>
+            <td>0x30</td>
+            <td>00110000</td>
+            <td>Ordered collection</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Example 1: Encoding an Integer (42)</h2>
+    <div class="encoding-example">
+        <p><strong>Value to encode:</strong> 42</p>
+        <p><strong>Process:</strong></p>
+        <ol>
+            <li>Type: INTEGER = 0x02</li>
+            <li>Length: 42 fits in 1 byte, so length = 1 = 0x01</li>
+            <li>Value: 42 = 0x2A</li>
+        </ol>
+        <p><strong>BER Encoding:</strong></p>
+        <div class="byte-diagram">
+            <div>
+                <div class="byte type">0x02</div>
+                <div class="byte-label">Type</div>
+            </div>
+            <div>
+                <div class="byte length">0x01</div>
+                <div class="byte-label">Length</div>
+            </div>
+            <div>
+                <div class="byte value">0x2A</div>
+                <div class="byte-label">Value (42)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Example 2: Encoding a String ("Hello")</h2>
+    <div class="encoding-example">
+        <p><strong>Value to encode:</strong> "Hello"</p>
+        <p><strong>Process:</strong></p>
+        <ol>
+            <li>Type: OCTET STRING = 0x04</li>
+            <li>Length: "Hello" = 5 bytes = 0x05</li>
+            <li>Value: ASCII bytes for "Hello"</li>
+        </ol>
+        <p><strong>BER Encoding:</strong></p>
+        <div class="byte-diagram">
+            <div>
+                <div class="byte type">0x04</div>
+                <div class="byte-label">Type</div>
+            </div>
+            <div>
+                <div class="byte length">0x05</div>
+                <div class="byte-label">Length</div>
+            </div>
+            <div>
+                <div class="byte value">0x48</div>
+                <div class="byte-label">'H'</div>
+            </div>
+            <div>
+                <div class="byte value">0x65</div>
+                <div class="byte-label">'e'</div>
+            </div>
+            <div>
+                <div class="byte value">0x6C</div>
+                <div class="byte-label">'l'</div>
+            </div>
+            <div>
+                <div class="byte value">0x6C</div>
+                <div class="byte-label">'l'</div>
+            </div>
+            <div>
+                <div class="byte value">0x6F</div>
+                <div class="byte-label">'o'</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Length Encoding Rules</h2>
+    <p>BER uses two forms for encoding length:</p>
+
+    <h3>Short Form (length < 128)</h3>
+    <div class="encoding-example">
+        <p>If length < 128, use 1 byte directly</p>
+        <div class="byte-diagram">
+            <div>
+                <div class="byte length">0x45</div>
+                <div class="byte-label">Length = 69</div>
+            </div>
+        </div>
+    </div>
+
+    <h3>Long Form (length ≥ 128)</h3>
+    <div class="encoding-example">
+        <p>First byte: 0x80 | number_of_length_bytes</p>
+        <p>Example: Length = 300 (0x012C)</p>
+        <div class="byte-diagram">
+            <div>
+                <div class="byte length">0x82</div>
+                <div class="byte-label">Long form, 2 bytes</div>
+            </div>
+            <div>
+                <div class="byte length">0x01</div>
+                <div class="byte-label">High byte</div>
+            </div>
+            <div>
+                <div class="byte length">0x2C</div>
+                <div class="byte-label">Low byte</div>
+            </div>
+        </div>
+        <p>0x82 = 10000010 (MSB=1 means long form, remaining bits = 2 length bytes)</p>
+    </div>
+</div>
+
+<div class="section">
+    <h2>OID Encoding: Special Rules</h2>
+    <div class="oid-example">
+        <p><strong>OID Example:</strong> 1.3.6.1.2.1 (common SNMP OID prefix)</p>
+
+        <p><strong>Special encoding rules:</strong></p>
+        <ol>
+            <li>First two numbers are combined: (first * 40) + second</li>
+            <li>Each subsequent number encoded with 7-bit chunks</li>
+            <li>MSB=1 means "more bytes follow", MSB=0 means "last byte"</li>
+        </ol>
+
+        <p><strong>Encoding process:</strong></p>
+        <ul>
+            <li>1.3 → (1 × 40) + 3 = 43 = 0x2B</li>
+            <li>6 → 0x06</li>
+            <li>1 → 0x01</li>
+            <li>2 → 0x02</li>
+            <li>1 → 0x01</li>
+        </ul>
+
+        <div class="byte-diagram">
+            <div>
+                <div class="byte type">0x06</div>
+                <div class="byte-label">OID type</div>
+            </div>
+            <div>
+                <div class="byte length">0x05</div>
+                <div class="byte-label">Length</div>
+            </div>
+            <div>
+                <div class="byte value">0x2B</div>
+                <div class="byte-label">1.3</div>
+            </div>
+            <div>
+                <div class="byte value">0x06</div>
+                <div class="byte-label">6</div>
+            </div>
+            <div>
+                <div class="byte value">0x01</div>
+                <div class="byte-label">1</div>
+            </div>
+            <div>
+                <div class="byte value">0x02</div>
+                <div class="byte-label">2</div>
+            </div>
+            <div>
+                <div class="byte value">0x01</div>
+                <div class="byte-label">1</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Complex Example: SNMP Message Structure</h2>
+    <div class="encoding-example">
+        <p><strong>An SNMP GetRequest PDU:</strong></p>
+        <pre>
+SEQUENCE {
+    version INTEGER (0),  // SNMPv1
+    community OCTET STRING ("public"),
+    PDU GetRequest {
+        request-id INTEGER (123),
+        error-status INTEGER (0),
+        error-index INTEGER (0),
+        variable-bindings SEQUENCE {
+            SEQUENCE {
+                name OID (1.3.6.1.2.1.1.1.0),
+                value NULL
+            }
+        }
+    }
+}
+            </pre>
+
+        <p><strong>Nested TLV structure visualization:</strong></p>
+        <div style="margin-left: 0;">
+            <div class="byte type" style="display: inline-block;">SEQUENCE</div>
+            <div style="margin-left: 20px; border-left: 2px solid #ccc; padding-left: 10px;">
+                <div><span class="byte type">INTEGER</span> version=0</div>
+                <div><span class="byte type">OCTET STRING</span> community="public"</div>
+                <div><span class="byte type">GetRequest PDU</span>
+                    <div style="margin-left: 20px; border-left: 2px solid #ccc; padding-left: 10px;">
+                        <div><span class="byte type">INTEGER</span> request-id=123</div>
+                        <div><span class="byte type">INTEGER</span> error-status=0</div>
+                        <div><span class="byte type">INTEGER</span> error-index=0</div>
+                        <div><span class="byte type">SEQUENCE</span> variable-bindings
+                            <div style="margin-left: 20px; border-left: 2px solid #ccc; padding-left: 10px;">
+                                <div><span class="byte type">SEQUENCE</span>
+                                    <div style="margin-left: 20px; border-left: 2px solid #ccc; padding-left: 10px;">
+                                        <div><span class="byte type">OID</span> 1.3.6.1.2.1.1.1.0</div>
+                                        <div><span class="byte type">NULL</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Why BER for SNMP?</h2>
+    <ul>
+        <li><strong>Compact:</strong> Binary encoding is much smaller than text formats</li>
+        <li><strong>Self-describing:</strong> Each value includes its type and length</li>
+        <li><strong>Hierarchical:</strong> Perfect for nested protocol structures</li>
+        <li><strong>Standard:</strong> Interoperable between different systems</li>
+        <li><strong>Extensible:</strong> New types can be added without breaking compatibility</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>Key Concepts in the Code</h2>
+    <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+        <h3>Encoding Functions:</h3>
+        <ul>
+            <li><code>encode-length</code> - Handles both short and long form length encoding</li>
+            <li><code>encode-integer</code> - Removes unnecessary leading bytes</li>
+            <li><code>encode-oid</code> - Implements special OID encoding rules</li>
+        </ul>
+
+        <h3>Decoding Functions:</h3>
+        <ul>
+            <li><code>decode-header</code> - Reads type and length</li>
+            <li><code>decode-length</code> - Handles variable-length encoding</li>
+            <li><code>decode-oid</code> - Reverses the special OID encoding</li>
+        </ul>
+    </div>
+</div>
+</body>
+</html>
