@@ -1,0 +1,13 @@
+FROM alpine:edge
+
+# Install SNMP daemon
+RUN apk add --no-cache net-snmp net-snmp-tools
+
+# Copy your custom SNMP config
+COPY snmpd.conf /etc/snmp/snmpd.conf
+
+# Expose SNMP port
+EXPOSE 161/udp
+
+# Start snmpd in foreground with logging to stdout
+CMD ["snmpd", "-f", "-Lo"]
