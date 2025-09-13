@@ -231,7 +231,6 @@ Merges encoded data and returns them as encoded sequence"
     (into (encode-header tag-byte (count bytes)) bytes)))
 
 (defn encode-unsigned-integer
-  "Encodes an unsigned integer following snmp4j's logic exactly"
   [this]
   (let [value    (:value this)
         tag-byte (byte (get ber (:type this)))

@@ -1,6 +1,5 @@
 (ns kouvas.snmp4clj.ber-test
-  "BER encoding/decoding function tests - focused on low-level BER operations.
-   Similar to snmp4j's BER function tests (testEncodeUnsignedInt64, testDecodeUnsignedInteger)."
+  "BER encoding/decoding function tests - focused on low-level BER operations."
   (:require [clojure.test :refer :all]
             [kouvas.snmp4clj.ber :as ber]
             [kouvas.snmp4clj.smi.counter32 :as c32]
@@ -45,7 +44,7 @@
              (ber/encode-ber (i32/make-integer32 0)))))))
 
 (deftest encode-unsigned-integer-test
-  (testing "encode unsigned integers matching snmp4j test cases"
+  (testing "encode unsigned integers"
     (let [;; Test case 1: 0xFFFFFFFF (4294967295) - maximum 32-bit unsigned
           counter1  (c32/make-counter32 0xFFFFFFFF)
           encoded1  (ber/encode-ber counter1)
@@ -63,17 +62,14 @@
       (is (= expected2 encoded2) "0x7FFFFFFF should encode without padding")))
 
   (testing "encode unsigned integers - additional edge cases"
-    (let [;; Test zero
-          counter0  (c32/make-counter32 0)
+    (let [counter0  (c32/make-counter32 0)
           encoded0  (ber/encode-ber counter0)
           expected0 [(byte 0x41) 1 (byte 0x00)]
 
-          ;; Test value requiring padding (0x80000000)
           counter3  (c32/make-counter32 0x80000000)
           encoded3  (ber/encode-ber counter3)
           expected3 [(byte 0x41) 5 (byte 0x00) (unchecked-byte 0x80) (byte 0x00) (byte 0x00) (byte 0x00)]
 
-          ;; Test small value (255)
           counter4  (c32/make-counter32 255)
           encoded4  (ber/encode-ber counter4)
           expected4 [(byte 0x41) 2 (byte 0x00) (unchecked-byte 0xFF)]]
@@ -88,7 +84,7 @@
           int32       (i32/make-integer32 value)
           bytes       (ber/encode-ber int32)
           ; Extract just the value bytes (skip tag and length)
-          value-bytes (drop 2 bytes)                   ; Skip tag (0x02) and length (0x04)
+          value-bytes (drop 2 bytes)
           decoded     (ber/decode-integer value-bytes)]
       (is (= value decoded)))))
 
@@ -115,7 +111,7 @@
   (testing "Encode and decode round trip"
     (let [test-strings ["hello"
                         ""
-                        "Hello SNMP4J"
+                        "Hello SNMP4CLJ"
                         (apply str (repeat 100 "X"))
                         "Special chars: àáâãä"
                         "Binary data: \u0000\u0001\u00FF"]]
@@ -128,11 +124,9 @@
 
 (deftest decode-unsigned-integer-test
   (testing "decode unsigned integers from value bytes"
-    (let [;; Test case 1: Single byte - 255 (0xFF)
-          value1-bytes [(unchecked-byte 0xFF)]
+    (let [value1-bytes [(unchecked-byte 0xFF)]
           decoded1     (ber/decode-unsigned-integer value1-bytes)
 
-          ;; Test case 2: Zero
           value2-bytes [(byte 0x00)]
           decoded2     (ber/decode-unsigned-integer value2-bytes)
 
@@ -168,35 +162,28 @@
           (ber/decode-unsigned-integer (repeat 6 (byte 0x01)))))))
 
 (deftest encode-unsigned-int64-test
-  "Tests for BER encode-unsigned-int64 function (like snmp4j's testEncodeUnsignedInt64)"
-  (testing "encode-unsigned-int64 BER function - snmp4j test cases"
-    ;; Direct function testing - not through Counter64 SMI layer
-    ;; snmp4j test case: -3914541189257109063l
+  (testing "encode-unsigned-int64 BER function"
     (let [test-record {:value -3914541189257109063 :type :ber/counter64}
           encoded     (ber/encode-unsigned-int64 test-record)
           expected    [(byte 0x46) 9 0 (unchecked-byte 0xC9) (unchecked-byte 0xAC) (unchecked-byte 0xC1) (unchecked-byte 0x87)
                        0x4B (unchecked-byte 0xB1) (unchecked-byte 0xE1) (unchecked-byte 0xB9)]]
       (is (= expected encoded) "encode big negative number correctly"))
 
-    ;; Test small positive value: 3
     (let [test-record {:value 3 :type :ber/counter64}
           encoded     (ber/encode-unsigned-int64 test-record)
           expected    [(byte 0x46) 1 3]]
       (is (= expected encoded) "Value 3 should encode to [0x46, 0x01, 0x03]"))
 
-    ;; Test boundary value: 16777217
     (let [test-record {:value 16777217 :type :ber/counter64}
           encoded     (ber/encode-unsigned-int64 test-record)
           expected    [(byte 0x46) 4 1 0 0 1]]
       (is (= expected encoded) "Value 16777217 should encode to [0x46, 0x04, 0x01, 0x00, 0x00, 0x01]")))
 
   (testing "encode-unsigned-int64 BER function - edge cases"
-    ;; Zero value
     (let [test-record {:value 0 :type :ber/counter64}
           encoded     (ber/encode-unsigned-int64 test-record)]
       (is (= [(byte 0x46) 1 0] encoded) "Zero should encode correctly"))
 
-    ;; Max signed long
     (let [test-record {:value Long/MAX_VALUE :type :ber/counter64}
           encoded     (ber/encode-unsigned-int64 test-record)]
       (is (= (byte 0x46) (first encoded)) "Tag should be 0x46")
@@ -210,25 +197,21 @@
       (is (= 0 (nth encoded 2)) "Should have leading zero byte"))))
 
 (deftest decode-unsigned-int64-test
-  "Tests for BER decode-unsigned-int64 function (like snmp4j's testDecodeUnsignedInteger)"
   (testing "decode-unsigned-int64 BER function - normal cases"
     ;; Test case 1: Zero
     (let [value-bytes [(byte 0x00)]
           decoded     (ber/decode-unsigned-int64 value-bytes)]
       (is (= 0 decoded) "Zero should decode correctly"))
 
-    ;; Test case 2: Small positive value (matches snmp4j test case 3)
     (let [value-bytes [3]                              ; From [0x46, 0x01, 0x03]
           decoded     (ber/decode-unsigned-int64 value-bytes)]
       (is (= 3 decoded) "Value 3 should decode correctly"))
 
-    ;; Test case 3: snmp4j negative test case bytes (without tag/length)
     (let [value-bytes [0 (unchecked-byte 0xC9) (unchecked-byte 0xAC) (unchecked-byte 0xC1) (unchecked-byte 0x87)
                        0x4B (unchecked-byte 0xB1) (unchecked-byte 0xE1) (unchecked-byte 0xB9)]
           decoded     (ber/decode-unsigned-int64 value-bytes)]
-      (is (= 14532202884452442553N decoded) "snmp4j test case should decode to unsigned equivalent"))
+      (is (= 14532202884452442553N decoded) "should decode to unsigned equivalent"))
 
-    ;; Test case 4: Large value with 8 bytes (Long/MAX_VALUE)
     (let [value-bytes [(byte 127) (byte -1) (byte -1) (byte -1) (byte -1) (byte -1) (byte -1) (byte -1)]
           decoded     (ber/decode-unsigned-int64 value-bytes)]
       (is (= 9223372036854775807N decoded) "Long/MAX_VALUE should decode correctly")))
@@ -250,7 +233,6 @@
           (ber/decode-unsigned-int64 (repeat 10 (byte 0x01)))))))
 (deftest encode-ip-address-test
   (testing "encode IPv4 addresses to BER format"
-    ;; Test standard IP addresses
     (let [ip-addr  (ip/make-ip-address "192.168.1.1")
           encoded  (ber/encode-ber ip-addr)
           expected [(byte 0x40) 4 (unchecked-byte 192) (unchecked-byte 168) 1 1]]
@@ -271,15 +253,13 @@
           expected [(byte 0x40) 4 0 0 0 0]]
       (is (= expected encoded) "Should encode zero address"))
 
-    ;; Test with byte array constructor
     (let [ip-addr  (ip/make-ip-address "test" (byte-array [10 0 0 1]))
           encoded  (ber/encode-ber ip-addr)
           expected [(byte 0x40) 4 10 0 0 1]]
       (is (= expected encoded) "Should encode IP created with byte array")))
 
-  (testing "encode IP address error cases"
-    ;; IPv6 should throw exception
-    (let [ipv6-addr (ip/make-ip-address "::1")]        ; localhost IPv6
+  (testing "encode IPv6 address error cases"
+    (let [ipv6-addr (ip/make-ip-address "::1")]
       (is (thrown-with-msg?
             clojure.lang.ExceptionInfo
             #"IPv6 addresses not supported yet"
@@ -325,18 +305,15 @@
 
 (deftest decode-netsnmp-double-test
   (testing "decode Net-SNMP double values from 8-byte sequences"
-    ;; Test case 1: Test that function returns Double type
     (let [double-bytes [0x40 0x59 0x00 0x00 0x00 0x00 0x00 0x00]
           decoded      (ber/decode-opaque-double double-bytes)]
       (is (instance? Double decoded) "Should return a Double instance")
       (is (pos? decoded) "Should decode to positive value"))
 
-    ;; Test case 2: Zero value
     (let [double-bytes [0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00]
           decoded      (ber/decode-opaque-double double-bytes)]
       (is (= 0.0 decoded) "Should decode zero correctly"))
 
-    ;; Test case 3: Different byte pattern
     (let [double-bytes [0x3F 0xBD 0xE6 0x3C 0x00 0x00 0x00 0x00]
           decoded      (ber/decode-opaque-double double-bytes)]
       (is (instance? Double decoded) "Should return a Double instance")))
@@ -359,32 +336,26 @@
 
 (deftest decode-signed-int64-variable-test
   (testing "decode signed 64-bit integers with variable length"
-    ;; Test case 1: Small positive value (1 byte)
     (let [int64-bytes [0x42]
           decoded     (ber/decode-opaque-signed-int64 int64-bytes)]
       (is (= 66 decoded) "Should decode single byte correctly"))
 
-    ;; Test case 2: Negative value (1 byte)
     (let [int64-bytes [0xFF]                           ; -1 in two's complement
           decoded     (ber/decode-opaque-signed-int64 int64-bytes)]
       (is (= -1 decoded) "Should decode negative single byte correctly"))
 
-    ;; Test case 3: Large positive value (4 bytes)
     (let [int64-bytes [0x7F 0xFF 0xFF 0xFF]            ; Max positive 32-bit
           decoded     (ber/decode-opaque-signed-int64 int64-bytes)]
       (is (= 2147483647 decoded) "Should decode max positive 32-bit value"))
 
-    ;; Test case 4: Large negative value (4 bytes) 
     (let [int64-bytes [0x80 0x00 0x00 0x00]            ; Min negative 32-bit
           decoded     (ber/decode-opaque-signed-int64 int64-bytes)]
       (is (= -2147483648 decoded) "Should decode min negative 32-bit value"))
 
-    ;; Test case 5: 8-byte value (Long max)
     (let [int64-bytes [0x7F 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF]
           decoded     (ber/decode-opaque-signed-int64 int64-bytes)]
       (is (= Long/MAX_VALUE decoded) "Should decode Long/MAX_VALUE"))
 
-    ;; Test case 6: Zero
     (let [int64-bytes [0x00]
           decoded     (ber/decode-opaque-signed-int64 int64-bytes)]
       (is (= 0 decoded) "Should decode zero correctly")))
@@ -402,59 +373,48 @@
 
 (deftest decode-opaque-test
   (testing "decode Net-SNMP Opaque special types"
-    ;; Test case 1: Float type (0x78) - actual SNMP bytes that work
     (let [opaque-bytes [0x9F 0x78 0x04 0x3F 0xBD 0xE6 0x3C] ; Float
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (instance? Float decoded) "Should return a Float instance")
       (is (pos? decoded) "Should decode to positive float value"))
 
-    ;; Test case 2: Double type (0x79) - functional test
     (let [opaque-bytes [0x9F 0x79 0x08 0x40 0x59 0x00 0x00 0x00 0x00 0x00 0x00]
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (instance? Double decoded) "Should return a Double instance"))
 
-    ;; Test case 3: UInt64 type (0x7B) - small value
     (let [opaque-bytes [0x9F 0x7B 0x01 0x42]
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= 66 decoded) "Should decode UInt64 small value correctly"))
 
-    ;; Test case 4: Int64 type (0x7A) - negative value
     (let [opaque-bytes [0x9F 0x7A 0x01 0xFF]           ; -1
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= -1 decoded) "Should decode Int64 negative value correctly"))
 
-    ;; Test case 5: Int64 type (0x7A) - large positive value
     (let [opaque-bytes [0x9F 0x7A 0x04 0x7F 0xFF 0xFF 0xFF]
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= 2147483647 decoded) "Should decode Int64 large positive value correctly")))
 
   (testing "decode opaque fallback to raw bytes"
-    ;; Test case: Unknown opaque type should return full structure as raw bytes
     (let [opaque-bytes [0x9F 0x99 0x04 0x01 0x02 0x03 0x04] ; Unknown type 0x99
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= [-97 -103 4 1 2 3 4] (seq decoded)) "Should return full structure for unknown type"))
 
-    ;; Test case: Non-special opaque (missing 0x9F header) returns all bytes
     (let [opaque-bytes [0x01 0x02 0x03 0x04]
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= [1 2 3 4] (seq decoded)) "Should return all bytes for non-special opaque")))
 
   (testing "decode opaque error and edge cases"
-    ;; Test case: Empty bytes returns empty byte array (nil when seq'd)
     (let [decoded (ber/decode-opaque [])]
       (is (nil? (seq decoded)) "Should return byte array that seq's to nil for empty input"))
 
-    ;; Test case: Truncated special type returns raw bytes (with signed conversion)
     (let [opaque-bytes [0x9F 0x78]                     ; Float type but no length/data
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= [-97 120] (seq decoded)) "Should return raw bytes for truncated special type"))
 
-    ;; Test case: Invalid length for float returns raw bytes (with signed conversion)
-    (let [opaque-bytes [0x9F 0x78 0x02 0x3F 0xBD]      ; Float with wrong length
+    (let [opaque-bytes [0x9F 0x78 0x02 0x3F 0xBD]
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= [-97 120 2 63 -67] (seq decoded)) "Should return raw bytes for invalid float length"))
 
-    ;; Test case: Invalid length for double returns raw bytes (with signed conversion)
     (let [opaque-bytes [0x9F 0x79 0x04 0x40 0x59 0x00 0x00] ; Double with wrong length
           decoded      (ber/decode-opaque opaque-bytes)]
       (is (= [-97 121 4 64 89 0 0] (seq decoded)) "Should return raw bytes for invalid double length"))))
