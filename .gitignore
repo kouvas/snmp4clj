@@ -1,0 +1,26 @@
+# Clojure
+.cpcache/
+.nrepl-port
+.rebel_readline_history
+target/
+pom.xml
+pom.xml.asc
+*.jar
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.lein-*
+.calva/
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Temporary files
+linux-install.sh
+*.tmp
