@@ -1,23 +1,31 @@
-Messing around with SNMP and Clojure with a proof of concept. 
-See [doc](./doc/BER.md) for documentation on Basic Encoding Rules of ASN.1 
+A barebones, zero-dependency SNMP client for Clojure.
+
+See [doc](./doc/BER.md) for documentation on Basic Encoding Rules of ASN.1
 protocol that SNMP follows.
 
-A no dependency client that works with SNMP version 2c. Standard Clojure data types, no mutability, minimum working implementation.
+**Features:**
+- ✅ SNMPv1 and SNMPv2c support
+- ✅ Zero external dependencies (pure Clojure + JVM)
+- ✅ Immutable, functional design
+- ✅ GET, GET-NEXT, SET operations
+- ✅ GET-BULK (v2c only)
+- ✅ Comprehensive BER encoding/decoding
 
 ```clojure
-;; snmp GET request for multiple OIDs
+(require '[kouvas.snmp4clj.snmp :as snmp])
+
+;; SNMPv2c GET request for multiple OIDs
 (def bytes-response
-  (snmp-request {:operation :get
-                 :host      "localhost"
-                 :version   :snmp/v2c
-                 :transport :udp
-                 :port      5161
-                 :community "public"
-                 :oids      ["1.3.6.1.2.1.1.1.0"     ;; sysDescr, Octet String
-                             "1.3.6.1.2.1.1.7.0"     ;; sysServices, Integer
-                             "1.3.6.1.2.1.1.3.0"     ;; sysUptime, Timeticks
-                             "1.3.6.1.4.1.2021.10.1.6.1" ;; opaque, float
-                             ]}))
+  (snmp/snmp-request {:operation :get
+                      :host      "localhost"
+                      :version   :snmp/v2c      ; or :snmp/v1
+                      :transport :udp
+                      :port      161
+                      :community "public"
+                      :oids      ["1.3.6.1.2.1.1.1.0"     ; sysDescr, Octet String
+                                  "1.3.6.1.2.1.1.7.0"     ; sysServices, Integer
+                                  "1.3.6.1.2.1.1.3.0"     ; sysUptime, Timeticks
+                                  "1.3.6.1.4.1.2021.10.1.6.1"]})) ; opaque, float
 bytes-response
 ;;=> [48 -127 -113  ;; tag(sequence type), length, value->
 ;;      2 1 1
@@ -104,11 +112,53 @@ bytes-response
 ;;                           {:oid {:value "1.3.6.1.4.1.2021.10.1.6.1", :type :ber/oid},
 ;;                            :variable {:value 0.068847656, :type :ber/opaque-float}}]}}
 
-(->response bytes-response)
+(snmp/->response bytes-response)
 ;;=>
 ;;{"1.3.6.1.2.1.1.1.0" "Snmpd test container for integration testing",
 ;; "1.3.6.1.2.1.1.7.0" 88,
 ;; "1.3.6.1.2.1.1.3.0" "1 day, 21:54:20.53",
 ;; "1.3.6.1.4.1.2021.10.1.6.1" 0.068847656}
 
+;; SNMPv1 usage (just change :version)
+(snmp/snmp-request {:version   :snmp/v1
+                    :host      "192.168.1.1"
+                    :community "public"
+                    :oids      ["1.3.6.1.2.1.1.1.0"]})
 ```
+
+## SNMPv1 vs SNMPv2c
+
+### Supported Operations
+
+| Operation | SNMPv1 | SNMPv2c | Description |
+|-----------|--------|---------|-------------|
+| GET       | ✅     | ✅      | Retrieve specific OID values |
+| GET-NEXT  | ✅     | ✅      | Retrieve next OID in MIB tree |
+| SET       | ✅     | ✅      | Modify OID values |
+| GET-BULK  | ❌     | ✅      | Efficient bulk retrieval |
+
+### Data Type Support
+
+| Type | SNMPv1 | SNMPv2c | Notes |
+|------|--------|---------|-------|
+| INTEGER | ✅ | ✅ | 32-bit signed |
+| OCTET STRING | ✅ | ✅ | Byte arrays, text |
+| OID | ✅ | ✅ | Object identifiers |
+| Counter32 | ✅ | ✅ | 32-bit unsigned counter |
+| Gauge32 | ✅ | ✅ | 32-bit unsigned gauge |
+| TimeTicks | ✅ | ✅ | Time since epoch |
+| Counter64 | ❌ | ✅ | 64-bit counter (v2c+ only) |
+| Exception values | ❌ | ✅ | noSuchObject, etc. |
+
+### When to Use
+
+**Use SNMPv1 when:**
+- Working with legacy devices that only support v1
+- Required by network policy
+- Maximum compatibility needed
+
+**Use SNMPv2c when:**
+- Working with modern devices (most support v2c)
+- Need GET-BULK for efficient table walking
+- Need 64-bit counters (high-speed network interfaces)
+- Want more detailed error messages

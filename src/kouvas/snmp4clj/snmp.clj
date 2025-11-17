@@ -8,7 +8,8 @@
             [kouvas.snmp4clj.smi.variable-binding :as vb]
             [kouvas.snmp4clj.socket :as soc]
             [kouvas.snmp4clj.target :as target]
-            [kouvas.snmp4clj.utils :as u]))
+            [kouvas.snmp4clj.utils :as u]
+            [kouvas.snmp4clj.validation :as valid]))
 
 (set! *warn-on-reflection* true)
 
@@ -40,16 +41,37 @@
       (println "Error communicating with server: " (.getMessage e)))))
 
 (defn snmp-request
+  "Execute an SNMP request to a remote agent.
+
+  Parameters:
+  - :operation - One of :get, :get-next, :set (v1+) or :get-bulk (v2c+ only)
+  - :version - One of :snmp/v1 or :snmp/v2c (default: :snmp/v2c)
+  - :host - Target hostname or IP address (default: \"localhost\")
+  - :port - SNMP port (default: 161)
+  - :community - SNMP community string (required)
+  - :oids - Vector of OID strings to query (required)
+  - :timeout - Timeout in milliseconds (default: 5000)
+  - :transport - :udp (default, only supported option currently)
+  - :retries - Number of retries (default: 3)
+
+  Returns:
+  - Vector of BER-encoded bytes on success
+  - nil on error (with println to stderr)"
   [& {:keys [operation host oids version community port
              transport timeout retries request-max-pdu-size]
       :or   {operation            :get
              host                 "localhost"
+             version              :snmp/v2c
              timeout              5000
              retries              3
              port                 161
              transport            :udp
              request-max-pdu-size pdu/max-size-request-pdu}
       :as   opts}]
+
+  ;; Validate version and operation
+  (valid/validate-version! version)
+  (valid/validate-operation! version operation)
 
   (let [community (os/make-octet-string community)
         version   (i32/make-integer32 (get snmp version))
