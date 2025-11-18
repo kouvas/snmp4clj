@@ -162,7 +162,7 @@
 ;; ============================================================================
 
 (def ^:private supported-versions
-  #{:snmp/v1 :snmp/v2c})  ; v3 not yet implemented
+  #{:snmp/v1 :snmp/v2c :snmp/v3})
 
 (defn version-supported?
   "Check if an SNMP version is supported."

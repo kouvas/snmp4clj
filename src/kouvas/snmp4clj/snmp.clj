@@ -9,7 +9,10 @@
             [kouvas.snmp4clj.socket :as soc]
             [kouvas.snmp4clj.target :as target]
             [kouvas.snmp4clj.utils :as u]
-            [kouvas.snmp4clj.validation :as valid]))
+            [kouvas.snmp4clj.validation :as valid]
+            [kouvas.snmp4clj.v3.engine :as engine]
+            [kouvas.snmp4clj.v3.message :as v3msg]
+            [kouvas.snmp4clj.v3.usm :as usm]))
 
 (set! *warn-on-reflection* true)
 
@@ -43,22 +46,30 @@
 (defn snmp-request
   "Execute an SNMP request to a remote agent.
 
-  Parameters:
+  Common Parameters:
   - :operation - One of :get, :get-next, :set (v1+) or :get-bulk (v2c+ only)
-  - :version - One of :snmp/v1 or :snmp/v2c (default: :snmp/v2c)
+  - :version - One of :snmp/v1, :snmp/v2c, or :snmp/v3 (default: :snmp/v2c)
   - :host - Target hostname or IP address (default: \"localhost\")
   - :port - SNMP port (default: 161)
-  - :community - SNMP community string (required)
   - :oids - Vector of OID strings to query (required)
   - :timeout - Timeout in milliseconds (default: 5000)
   - :transport - :udp (default, only supported option currently)
   - :retries - Number of retries (default: 3)
 
+  v1/v2c Parameters:
+  - :community - SNMP community string (required for v1/v2c)
+
+  v3 Parameters (authNoPriv only):
+  - :username - SNMPv3 username (required for v3)
+  - :auth-protocol - :md5 or :sha (required for v3)
+  - :auth-password - Authentication password (required for v3)
+
   Returns:
   - Vector of BER-encoded bytes on success
   - nil on error (with println to stderr)"
   [& {:keys [operation host oids version community port
-             transport timeout retries request-max-pdu-size]
+             transport timeout retries request-max-pdu-size
+             username auth-protocol auth-password]
       :or   {operation            :get
              host                 "localhost"
              version              :snmp/v2c
@@ -73,24 +84,99 @@
   (valid/validate-version! version)
   (valid/validate-operation! version operation)
 
-  (let [community (os/make-octet-string community)
-        version   (i32/make-integer32 (get snmp version))
-        target    (target/make-target host port version community timeout retries transport request-max-pdu-size 1 1)
-        oids      (mapv oid/make-oid oids)
-        varbinds  (vb/make-variable-bindings oids)
-        pdu       (pdu/make-pdu varbinds operation)
-        payload   (ber/encode-snmp-payload version community pdu)]
-    (execute-request! target payload)))
+  (if (= version :snmp/v3)
+    ;; SNMPv3 code path
+    (let [;; Validate v3 parameters
+          _ (when-not username
+              (throw (ex-info "Username required for SNMPv3" {:version version})))
+          _ (when-not auth-protocol
+              (throw (ex-info "Auth protocol required for SNMPv3" {:version version})))
+          _ (when-not auth-password
+              (throw (ex-info "Auth password required for SNMPv3" {:version version})))
+          _ (when-not (#{:md5 :sha} auth-protocol)
+              (throw (ex-info "Auth protocol must be :md5 or :sha" {:protocol auth-protocol})))
+
+          ;; Create send function for this host/port
+          send-fn (fn [request-bytes]
+                    (let [target (target/make-target host port nil nil timeout retries transport request-max-pdu-size 1 1)]
+                      (execute-request! target request-bytes)))
+
+          ;; Discover/sync engine (uses cache if available)
+          engine-state (engine/discover-and-sync host port username auth-password auth-protocol send-fn)]
+
+      (when engine-state
+        ;; Create authenticated request
+        (let [oids (mapv oid/make-oid oids)
+              varbinds (vb/make-variable-bindings oids)
+              pdu-obj (pdu/make-pdu varbinds operation)
+
+              ;; Get current engine time
+              current-time (engine/get-current-engine-time engine-state)
+
+              ;; Create authenticated message
+              message (v3msg/make-authenticated-message
+                        pdu-obj
+                        (:engine-id engine-state)
+                        (:engine-boots engine-state)
+                        current-time
+                        username
+                        false)  ; Not reportable for GET requests
+
+              ;; Encode with authentication
+              payload (v3msg/encode-snmpv3-message
+                        message
+                        (:localized-key engine-state)
+                        auth-protocol)]
+
+          ;; Send request
+          (let [target (target/make-target host port nil nil timeout retries transport request-max-pdu-size 1 1)]
+            (execute-request! target payload)))))
+
+    ;; SNMPv1/v2c code path (original)
+    (let [community (os/make-octet-string community)
+          version   (i32/make-integer32 (get snmp version))
+          target    (target/make-target host port version community timeout retries transport request-max-pdu-size 1 1)
+          oids      (mapv oid/make-oid oids)
+          varbinds  (vb/make-variable-bindings oids)
+          pdu       (pdu/make-pdu varbinds operation)
+          payload   (ber/encode-snmp-payload version community pdu)]
+      (execute-request! target payload))))
 
 (defn ->response
+  "Decode SNMP response bytes to a map of OID -> value.
+
+  Supports v1, v2c, and v3 responses.
+
+  Parameters:
+  - byte-vec: Vector of response bytes
+
+  Returns: Map of OID strings to values"
   [byte-vec]
-  (->> byte-vec
-       ber/decode-ber
-       :pdu
-       :variable-bindings
-       (map (fn [{:keys [oid variable]}]
-              [(:value oid) (:value variable)]))
-       (into {})))
+  (let [;; Try to detect version by looking at the message structure
+        ;; v3 messages have version=3 at the beginning
+        version-tlv (ber/bytes->tlv-structure byte-vec)
+        first-elem (first (:value version-tlv))
+        version-num (when (= 2 (:tag first-elem))  ; INTEGER tag
+                      (ber/decode-ber-value first-elem))]
+
+    (if (= 3 version-num)
+      ;; SNMPv3 response
+      (let [decoded (v3msg/decode-snmpv3-message byte-vec)
+            scoped-pdu (:msgData decoded)
+            pdu (:data scoped-pdu)]
+        (->> (:variable-bindings pdu)
+             (map (fn [{:keys [oid variable]}]
+                    [(:value oid) (:value variable)]))
+             (into {})))
+
+      ;; SNMPv1/v2c response (original)
+      (->> byte-vec
+           ber/decode-ber
+           :pdu
+           :variable-bindings
+           (map (fn [{:keys [oid variable]}]
+                  [(:value oid) (:value variable)]))
+           (into {})))))
 
 (comment
 
