@@ -65,7 +65,7 @@
   (let [last-time (:engine-time engine-state)
         last-instant (:last-updated engine-state)
         now (Instant/now)
-        elapsed-seconds (.getEpochSecond (.between java.time.temporal.ChronoUnit/SECONDS last-instant now))]
+        elapsed-seconds (.between java.time.temporal.ChronoUnit/SECONDS last-instant now)]
     (+ last-time elapsed-seconds)))
 
 ;; ============================================================================

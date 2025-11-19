@@ -221,21 +221,21 @@
         encoded-version (ber/encode-ber (i32/make-integer32 (:msgVersion message)))
 
         ;; Encode HeaderData
-        encoded-header  (encode-header-data (:msgGlobalData message))
+        encoded-header  (encode-header-data (:msgGlobalData message))]
 
-        ;; Encode USM parameters with ZERO auth params initially
-        usm-with-zeros  (usm/zero-auth-params (:msgSecurityParameters message))
-        encoded-usm     (usm/encode-usm-parameters usm-with-zeros)
-
-        ;; Encode ScopedPDU
-        encoded-scoped  (encode-scoped-pdu (:msgData message))
-
-        ;; Build complete message with zero auth params
-        temp-message    (ber/encode-sequence [encoded-version encoded-header encoded-usm encoded-scoped])]
-
-    ;; If authentication required, calculate HMAC and rebuild
+    ;; If authentication required, calculate HMAC
     (if (and localized-key auth-protocol)
-      (let [;; Calculate HMAC over temp message
+      (let [;; For auth, use zero auth params for HMAC calculation
+            usm-with-zeros  (usm/zero-auth-params (:msgSecurityParameters message))
+            encoded-usm     (usm/encode-usm-parameters usm-with-zeros)
+
+            ;; Encode ScopedPDU
+            encoded-scoped  (encode-scoped-pdu (:msgData message))
+
+            ;; Build message with zero auth params for HMAC calculation
+            temp-message    (ber/encode-sequence [encoded-version encoded-header encoded-usm encoded-scoped])
+
+            ;; Calculate HMAC over temp message
             hmac            (crypto/calculate-hmac (byte-array temp-message) localized-key auth-protocol)
 
             ;; Update USM params with calculated HMAC
@@ -246,8 +246,10 @@
             final-message   (ber/encode-sequence [encoded-version encoded-header encoded-usm-hmac encoded-scoped])]
         final-message)
 
-      ;; No authentication, return message as-is
-      temp-message)))
+      ;; No authentication - use USM params as-is (keep empty auth params)
+      (let [encoded-usm    (usm/encode-usm-parameters (:msgSecurityParameters message))
+            encoded-scoped (encode-scoped-pdu (:msgData message))]
+        (ber/encode-sequence [encoded-version encoded-header encoded-usm encoded-scoped])))))
 
 ;; ============================================================================
 ;; Message Decoding

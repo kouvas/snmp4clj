@@ -140,29 +140,29 @@
 (deftest version-supported-test
   (testing "Supported versions"
     (is (true? (valid/version-supported? :snmp/v1)))
-    (is (true? (valid/version-supported? :snmp/v2c))))
+    (is (true? (valid/version-supported? :snmp/v2c)))
+    (is (true? (valid/version-supported? :snmp/v3))))
 
   (testing "Unsupported versions"
-    (is (false? (valid/version-supported? :snmp/v3))
-        "v3 not yet implemented")
     (is (false? (valid/version-supported? :invalid)))))
 
 (deftest validate-version-test
   (testing "Valid versions don't throw"
     (is (nil? (valid/validate-version! :snmp/v1)))
-    (is (nil? (valid/validate-version! :snmp/v2c))))
+    (is (nil? (valid/validate-version! :snmp/v2c)))
+    (is (nil? (valid/validate-version! :snmp/v3))))
 
   (testing "Invalid versions throw with details"
     (let [ex (try
-               (valid/validate-version! :snmp/v3)
+               (valid/validate-version! :invalid)
                (catch clojure.lang.ExceptionInfo e e))]
       (is (some? ex))
       (is (= "SNMP version not supported" (.getMessage ex)))
       (let [data (ex-data ex)]
-        (is (= :snmp/v3 (:version data)))
+        (is (= :invalid (:version data)))
         (is (contains? (:supported data) :snmp/v1))
         (is (contains? (:supported data) :snmp/v2c))
-        (is (not (contains? (:supported data) :snmp/v3)))))))
+        (is (contains? (:supported data) :snmp/v3))))))
 
 ;; ============================================================================
 ;; Integration Tests

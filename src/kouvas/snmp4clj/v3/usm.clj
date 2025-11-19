@@ -88,8 +88,8 @@
                               encoded-auth
                               encoded-priv])
 
-        ;; Wrap in OCTET STRING
-        outer-octet-string (ber/encode-ber (os/make-octet-string usm-sequence))]
+        ;; Wrap in OCTET STRING (convert vector to byte-array)
+        outer-octet-string (ber/encode-ber (os/make-octet-string (byte-array usm-sequence)))]
     outer-octet-string))
 
 ;; ============================================================================
@@ -120,7 +120,7 @@
         [engine-id-tlv boots-tlv time-tlv username-tlv auth-tlv priv-tlv] (:value inner-tlv)
 
         ;; Decode each field
-        engine-id       (ber/decode-ber-value engine-id-tlv)
+        engine-id       (:value engine-id-tlv)  ; Keep as bytes
         engine-boots    (ber/decode-ber-value boots-tlv)
         engine-time     (ber/decode-ber-value time-tlv)
         username        (ber/decode-ber-value username-tlv)
@@ -128,7 +128,7 @@
         priv-params     (:value priv-tlv)] ; Keep as bytes
 
     (->UsmSecurityParameters
-      (.getBytes engine-id "ISO-8859-1")  ; Convert string back to bytes
+      (byte-array engine-id)
       engine-boots
       engine-time
       username

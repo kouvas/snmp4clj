@@ -39,12 +39,14 @@
                                           :supported #{:md5 :sha}})))]
 
     ;; Fill 1MB buffer by repeating password
-    (loop [offset 0]
-      (when (< offset one-megabyte)
-        (let [remaining   (- one-megabyte offset)
-              copy-length (min password-len remaining)]
-          (System/arraycopy password-bytes 0 buffer offset copy-length)
-          (recur (+ offset copy-length)))))
+    ;; Handle empty password - buffer remains all zeros
+    (when (pos? password-len)
+      (loop [offset 0]
+        (when (< offset one-megabyte)
+          (let [remaining   (- one-megabyte offset)
+                copy-length (min password-len remaining)]
+            (System/arraycopy password-bytes 0 buffer offset copy-length)
+            (recur (+ offset copy-length))))))
 
     ;; Hash the buffer to produce Ku
     (let [md (MessageDigest/getInstance hash-algo)]

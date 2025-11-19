@@ -164,7 +164,7 @@
           "HMAC verification should succeed for matching HMAC")
 
       ;; Tamper with message
-      (aset message 50 (byte 0xFF))
+      (aset message 50 (unchecked-byte 0xFF))
       (is (false? (crypto/verify-hmac message hmac localized-key :md5))
           "HMAC verification should fail for tampered message"))))
 

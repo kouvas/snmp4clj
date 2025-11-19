@@ -172,7 +172,7 @@
 
 (deftest zero-auth-params-test
   (testing "Zero out authentication parameters"
-    (let [usm    (usm/make-usm-parameters (byte-array 5) "user"
+    (let [usm    (usm/make-usm-parameters (byte-array 5) 0 0 "user"
                                           (byte-array (repeat 12 0xFF))
                                           (byte-array 0))
           zeroed (usm/zero-auth-params usm)]
@@ -181,10 +181,11 @@
 
 (deftest usm-parameters-to-map-test
   (testing "Convert USM parameters to map"
-    (let [engine-id (byte-array [0x80 0x00 0x1f 0x88])
+    (let [engine-id (byte-array [(unchecked-byte 0x80) 0x00 0x1f (unchecked-byte 0x88)])
           usm       (usm/make-usm-parameters engine-id 5 123456 "admin")
           m         (usm/usm-parameters->map usm)]
-      (is (= [0x80 0x00 0x1f 0x88] (:engine-id m)))
+      ;; Java bytes are signed: 0x80 = -128, 0x88 = -120
+      (is (= [-128 0 31 -120] (:engine-id m)))
       (is (= 5 (:engine-boots m)))
       (is (= 123456 (:engine-time m)))
       (is (= "admin" (:username m)))
